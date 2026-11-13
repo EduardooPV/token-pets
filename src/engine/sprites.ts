@@ -25,6 +25,8 @@ export const PALETTE: Record<string, string> = {
   T: "#7a5230",
   M: "#f3e2b3",
   g: "#9aa0a6",
+  N: "#1b2140",
+  C: "#5ef2d0",
 };
 
 function newGrid(): Grid {
@@ -67,17 +69,17 @@ const BODY: Record<Character, string[]> = {
   ],
   codex: [
     ".....Y......",
-    "..BBBBBBBB..",
-    ".BBBBBBBBBB.",
     "BBBBBBBBBBBB",
+    "BNNNNNNNNNNB",
+    "BNNNNNNNNNNB",
+    "BNNNNNNNNNNB",
+    "BNNNNNNNNNNB",
+    "BNNNNNNNNNNB",
+    "BNNNNNNNNNNB",
+    "BNNNNNNNNNNB",
     "BBBBBBBBBBBB",
-    "BBBBBBBBBBBB",
-    "BBLLLLLLLLBB",
-    "BBLLLLLLLLBB",
-    ".BBBBBBBBBB.",
+    "....bbbb....",
     "..bbbbbbbb..",
-    "..bb....bb..",
-    "..bb....bb..",
   ],
 };
 // o corpo do claudezinho começa na linha 2; o do codexzinho tem antena e começa na linha 1
@@ -85,20 +87,23 @@ const BODY_Y: Record<Character, number> = { claude: 2, codex: 1 };
 
 type Pt = [number, number];
 
+// cor do "rosto": o claudezinho tem olhos escuros; o codexzinho é um monitor com rosto brilhante na tela
+let INK = "K";
+
 function pixels(g: Grid, pts: Pt[], k: string) {
   for (const [x, y] of pts) set(g, x, y, k);
 }
 
 function eyesOpen(g: Grid, dx = 0) {
-  stamp(g, ["KK"], 5 + dx, 5);
-  stamp(g, ["KK"], 5 + dx, 6);
-  stamp(g, ["KK"], 9 + dx, 5);
-  stamp(g, ["KK"], 9 + dx, 6);
+  stamp(g, [INK+INK], 5 + dx, 5);
+  stamp(g, [INK+INK], 5 + dx, 6);
+  stamp(g, [INK+INK], 9 + dx, 5);
+  stamp(g, [INK+INK], 9 + dx, 6);
 }
 
 function eyesLine(g: Grid, y = 6) {
-  stamp(g, ["KK"], 5, y);
-  stamp(g, ["KK"], 9, y);
+  stamp(g, [INK+INK], 5, y);
+  stamp(g, [INK+INK], 9, y);
 }
 
 function drawFace(g: Grid, state: PetState, frame: number) {
@@ -106,32 +111,32 @@ function drawFace(g: Grid, state: PetState, frame: number) {
     case "idle":
       if (frame === 1) eyesLine(g);
       else eyesOpen(g);
-      pixels(g, [[6, 8], [7, 9], [8, 9], [9, 8]], "K");
+      pixels(g, [[6, 8], [7, 9], [8, 9], [9, 8]], INK);
       break;
     case "working":
       eyesLine(g);
-      pixels(g, [[7, 8], [8, 8]], "K");
+      pixels(g, [[7, 8], [8, 8]], INK);
       break;
     case "waiting":
       eyesOpen(g, 1);
-      pixels(g, [[7, 8], [8, 8]], "K");
+      pixels(g, [[7, 8], [8, 8]], INK);
       break;
     case "tired":
       eyesLine(g);
-      pixels(g, [[7, 8], [8, 8], [9, 8]], "K");
+      pixels(g, [[7, 8], [8, 8], [9, 8]], INK);
       break;
     case "exhausted":
-      for (const ox of [5, 9]) pixels(g, [[ox, 5], [ox + 2, 5], [ox + 1, 6], [ox, 7], [ox + 2, 7]], "K");
-      pixels(g, [[6, 9], [7, 8], [8, 9], [9, 8]], "K");
+      for (const ox of [5, 9]) pixels(g, [[ox, 5], [ox + 2, 5], [ox + 1, 6], [ox, 7], [ox + 2, 7]], INK);
+      pixels(g, [[6, 9], [7, 8], [8, 9], [9, 8]], INK);
       if (frame === 1) pixels(g, [[8, 10]], "R");
       break;
     case "sleeping":
       eyesLine(g);
-      pixels(g, [[7, 8], [8, 8]], "K");
+      pixels(g, [[7, 8], [8, 8]], INK);
       break;
     case "celebrating":
-      for (const ox of [5, 9]) pixels(g, [[ox, 6], [ox + 1, 5], [ox + 2, 6]], "K");
-      pixels(g, [[7, 8], [8, 8], [7, 9], [8, 9]], "K");
+      for (const ox of [5, 9]) pixels(g, [[ox, 6], [ox + 1, 5], [ox + 2, 6]], INK);
+      pixels(g, [[7, 8], [8, 8], [7, 9], [8, 9]], INK);
       pixels(g, [[7, 9], [8, 9]], "R");
       break;
   }
@@ -198,6 +203,7 @@ export function buildFrame(character: Character, state: PetState, frame: number,
   if (hit) return hit;
   let core = newGrid();
   stamp(core, BODY[character], 2, BODY_Y[character]);
+  INK = character === "codex" ? "C" : "K";
   drawFace(core, state, frame);
   drawCostume(core, costume);
   let dy = 0;

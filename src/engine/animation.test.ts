@@ -76,6 +76,16 @@ describe("animações", () => {
     expect(JSON.stringify(buildFrame("claude", "exhausted", 0))).not.toBe(a);
     expect(JSON.stringify(buildFrame("codex", "idle", 0))).not.toBe(a);
   });
+
+  it("o codexzinho tem silhueta e cores próprias, não só outra cor do claudezinho", () => {
+    const shape = (g: string[][]) => g.map((row) => row.map((c) => (c ? "#" : ".")).join("")).join("/");
+    expect(shape(buildFrame("codex", "idle", 0))).not.toBe(shape(buildFrame("claude", "idle", 0)));
+    const colors = (g: string[][]) => new Set(g.flat().filter(Boolean));
+    expect(colors(buildFrame("codex", "idle", 0)).has("C")).toBe(true); // rosto brilhante
+    expect(colors(buildFrame("claude", "idle", 0)).has("C")).toBe(false);
+    expect(colors(buildFrame("claude", "idle", 0)).has("O")).toBe(true);
+    expect(colors(buildFrame("codex", "idle", 0)).has("O")).toBe(false);
+  });
 });
 
 describe("costumeForAgent", () => {
