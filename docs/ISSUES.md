@@ -1,34 +1,47 @@
 # Backlog (local)
 
-## Status da implementação (branch `feat/mvp`)
+## Status da implementação (branch `feat/electron`)
 
-Bloqueio: o Windows desta máquina está com **Smart App Control em modo "aplicar"**, que impede o `rustc` de carregar
-as DLLs de proc-macro sem assinatura (`serde_derive`, erro 4551). Por isso **nenhum código Rust foi compilado nem
-testado ainda**. O front-end (TypeScript) está com `tsc` e Vitest verdes e o popup foi conferido no navegador com dados
-de exemplo. Quando o Smart App Control for desligado: `cargo test`, `pnpm tauri dev` e depois os critérios de
-aceite abaixo, na ordem.
+**Mudança de stack:** o plano original usava Tauri + Rust, mas o Smart App Control do Windows desta máquina bloqueia as
+DLLs de proc-macro sem assinatura (erro 4551), então o Rust não compila aqui. A implementação foi refeita em
+**Electron + TypeScript** (o `electron.exe` oficial roda normalmente sob o Smart App Control). O código Tauri/Rust ficou
+só no histórico da branch `feat/mvp`.
 
-| # | Código escrito | Verificado |
+Verificado nesta máquina: `tsc` limpo, 79 testes Vitest passando (inclui testes de ponta a ponta do motor com
+arquivos temporários), app rodando de verdade (`electron .` e o empacotado `release/win-unpacked`), popup lendo
+dados reais e capturado por CDP, pet criado e renderizado, medição de RAM e CPU.
+
+| # | Status | Observações |
 |---|---|---|
-| 1 Base | sim (`lib.rs`, `tray.rs`, `windows.rs`, CI) | não (Rust não compila aqui) |
-| 2 Codex | sim (`collectors/codex.rs`, testes) | não |
-| 3 Claude local + sessões | sim (`claude_local.rs`, `sessions.rs`, `engine.rs`, testes) | não |
-| 4 % exato | sim (`claude_api.rs`, calibração em `engine.rs`) | não; o endpoint nunca foi chamado de verdade |
-| 5 Histórico e ritmo | sim (`store.rs`, `pace.rs`, `popup/chart.ts`) | gráfico visto com dados de exemplo; Rust não |
-| 6 Sprites e motor | sim | **sim** (Vitest + inspeção visual dos 7 estados × 2 personagens + 5 fantasias) |
-| 7 Popup | sim | layout visto no navegador com dados de exemplo; não no Tauri |
-| 8 Pet | sim (`pet/main.ts`, `sync_pet`) | não |
-| 9 Avisos e sons | sim (`alerts.rs`, `sounds.ts`) | testes Rust escritos, não executados |
-| 10 Medição e instalador | `scripts/measure.ps1` escrito | nenhuma medição feita; instalador não gerado |
+| 1 Base | feito | bandeja, instância única, autostart (só empacotado), CI, ZIP + `scripts/install.ps1`. O instalador NSIS falha aqui (o gerador dele é um .exe sem reputação). Autostart empacotado **não testado**. |
+| 2 Codex | feito | `src/core/codex.ts`; % real (69% / 94%) conferido contra o log. |
+| 3 Claude local + sessões | feito | `claudeLocal.ts`, `sessions.ts`, `engine.ts`; sessão real apareceu com o título correto. Subagentes só testados com arquivos de teste. |
+| 4 % exato | **parcial** | Código e testes ok, mas o token do `~/.claude/.credentials.json` está expirado e o app **não renova** por segurança ("login expirado"), então a chamada ao endpoint nunca foi feita de verdade. Sem leitura exata, a calibração do teto não acontece. |
+| 5 Histórico e ritmo | feito | SQLite (`node:sqlite`), `pace.ts`; o gráfico ainda está vazio (histórico começa agora). |
+| 6 Sprites e motor | feito | 7 estados × 2 personagens + 5 fantasias, conferidos visualmente; 12 fps, pausa quando oculto. |
+| 7 Popup | feito | abre em ~1 s, destruído ao fechar. |
+| 8 Pet | feito | janela transparente que ignora o mouse; visto via CDP, **não** conferido visualmente sobre a área de trabalho. |
+| 9 Avisos e sons | feito nos testes | lógica testada em `alerts.test.ts`; toast do Windows e som **não** observados. |
+| 10 Medição e instalador | parcial | Medido (dev, 1 a 2 min por modo, não 10): ver tabela abaixo. Instalador = ZIP + script. |
+
+Consumo medido (`electron .`, GPU desligada, 12 CPUs lógicas):
+
+| Modo | RAM privada (média) | CPU (média) |
+|---|---|---|
+| Só bandeja | ~59 MB (1 min; antes de desligar a GPU eram ~96 MB) | ~0,1% |
+| Pet aberto (1 sessão) | ~88 MB (2 min) | ~1% |
+| Popup aberto | não medido | não medido |
+
+A meta original (≤50 MB na bandeja) não é atingida com Electron; a meta "moderada" para o pet (≤200 MB, <5% CPU) é.
 
 Diferenças em relação ao plano original:
 - Sons são sintetizados com WebAudio (sem arquivos WAV).
 - O pet não é clicável nem arrastável (a janela ignora o mouse por inteiro); abre-se o painel pela bandeja.
-- A deduplicação de avisos fica no Rust (`alerts.rs`), não no Vitest.
-- Teto da estimativa do Claude começa com valores chute (`DEFAULT_CAP_*` em `engine.rs`) e se calibra sozinho
-  na primeira leitura exata.
+- A deduplicação de avisos fica em `alerts.ts`, testada no Vitest.
+- O teto da estimativa do Claude começa com valores chute (`DEFAULT_CAP_*` em `src/core/engine.ts`; hoje mostra
+  56% / 51%) e só se calibra quando uma leitura exata chegar.
 
-Ordem: 1 → (2, 3 em paralelo) → 4 → 5 → 6 → 7 → 8 → 9 → 10. Marque `[x]` só depois de verificar o critério de aceite.
+Ordem original: 1 → (2, 3 em paralelo) → 4 → 5 → 6 → 7 → 8 → 9 → 10.
 
 ## [ ] 1. Base do projeto
 Scaffold Tauri 2 + TS (Vite), ícone na bandeja, instância única, autostart, CI (fmt, clippy, cargo test, tsc, vitest).

@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 import { resolve } from "node:path";
 
 export default defineConfig({
+  base: "./",
   clearScreen: false,
   server: { port: 1420, strictPort: true },
   build: {

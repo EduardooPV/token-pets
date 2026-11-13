@@ -5,19 +5,51 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "tauri": "tauri"
+    "build:ui": "vite build",
+    "build:main": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --target=node24 --format=cjs --external:electron --outdir=dist-electron --out-extension:.js=.cjs",
+    "build": "pnpm typecheck && pnpm build:ui && pnpm build:main",
+    "app": "pnpm build && electron .",
+    "dist": "pnpm build && electron-builder --win zip --publish never",
+    "dist:nsis": "pnpm build && electron-builder --win nsis --publish never"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^26.6.6",
+    "electron": "^45.3.0",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.0"
   },
-  "dependencies": {
-    "@tauri-apps/api": "^2.12.4"
+  "main": "dist-electron/main.cjs",
+  "description": "Bandeja do Windows com bonequinhos que mostram o uso de Claude e Codex",
+  "author": "EduardooPV",
+  "build": {
+    "appId": "dev.eduardoopv.tokenpets",
+    "productName": "Token Pets",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "zip"
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "artifactName": "Token-Pets-${version}-win.${ext}"
   }
 }

@@ -1,36 +1,38 @@
 <#
-Mede RAM (Working Set + Private) e CPU média do Token Pets.
-Uso: pwsh scripts/measure.ps1 -Minutes 10 [-Label "so-bandeja"]
+Mede RAM (Private + Working Set) e CPU média do Token Pets (processo principal + filhos do Electron).
+Uso: pwsh scripts/measure.ps1 -Minutes 10 -Label so-bandeja [-Name electron]
+  -Name: "electron" (rodando via `pnpm app`/`electron .`) ou "Token Pets" (instalado).
 Rode uma vez com o app só na bandeja e outra com o popup/pet aberto, e anote no README.
 #>
 param(
   [int]$Minutes = 10,
   [int]$IntervalSeconds = 5,
-  [string]$Label = "medicao"
+  [string]$Label = "medicao",
+  [string]$Name = "electron"
 )
 
-$procs = Get-Process | Where-Object { $_.ProcessName -match '^(token-pets|msedgewebview2)$' }
-$app = Get-Process -Name 'token-pets' -ErrorAction SilentlyContinue
-if (-not $app) { Write-Error "token-pets não está rodando."; exit 1 }
+# o processo principal é o que não tem --type= na linha de comando
+$all = Get-CimInstance Win32_Process -Filter "Name='$Name.exe'"
+$main = $all | Where-Object { $_.CommandLine -notmatch '--type=' } | Select-Object -First 1
+if (-not $main) { Write-Error "processo principal de '$Name' não encontrado."; exit 1 }
 
-# o app + os processos do WebView2 que ele criou (filhos diretos ou descendentes)
-function Get-Tree($rootPid) {
-  $all = Get-CimInstance Win32_Process
+function Get-Tree([int]$rootPid) {
+  $procs = Get-CimInstance Win32_Process
   $ids = [System.Collections.Generic.HashSet[int]]::new()
   [void]$ids.Add($rootPid)
   do {
     $before = $ids.Count
-    foreach ($p in $all) { if ($ids.Contains([int]$p.ParentProcessId)) { [void]$ids.Add([int]$p.ProcessId) } }
+    foreach ($p in $procs) { if ($ids.Contains([int]$p.ParentProcessId)) { [void]$ids.Add([int]$p.ProcessId) } }
   } while ($ids.Count -ne $before)
   $ids
 }
 
 $ncpu = [Environment]::ProcessorCount
 $samples = @()
+$prev = $null
 $end = (Get-Date).AddMinutes($Minutes)
-$prev = @{}
 while ((Get-Date) -lt $end) {
-  $ids = Get-Tree $app.Id
+  $ids = Get-Tree $main.ProcessId
   $ws = 0; $priv = 0; $cpuNow = 0.0
   foreach ($id in $ids) {
     $p = Get-Process -Id $id -ErrorAction SilentlyContinue
@@ -40,7 +42,7 @@ while ((Get-Date) -lt $end) {
   }
   $t = Get-Date
   $cpuPct = $null
-  if ($prev.ContainsKey('t')) {
+  if ($prev) {
     $dt = ($t - $prev.t).TotalSeconds
     if ($dt -gt 0) { $cpuPct = [Math]::Max(0, ($cpuNow - $prev.cpu) / $dt / $ncpu * 100) }
   }
@@ -53,6 +55,6 @@ $cpu = $samples | Where-Object { $null -ne $_.CpuPct } | Measure-Object CpuPct -
 $ws = $samples | Measure-Object WorkingSetMB -Average -Maximum
 $priv = $samples | Measure-Object PrivateMB -Average -Maximum
 "[$Label] $Minutes min, $($samples.Count) amostras, $ncpu CPUs lógicas, processos (média): $([Math]::Round(($samples | Measure-Object Procs -Average).Average,1))"
-"  RAM Working Set: média $([Math]::Round($ws.Average,1)) MB, máx $($ws.Maximum) MB"
 "  RAM Private:     média $([Math]::Round($priv.Average,1)) MB, máx $($priv.Maximum) MB"
+"  RAM Working Set: média $([Math]::Round($ws.Average,1)) MB, máx $($ws.Maximum) MB (conta páginas compartilhadas entre processos mais de uma vez)"
 "  CPU:             média $([Math]::Round($cpu.Average,2)) %, máx $([Math]::Round($cpu.Maximum,2)) %"

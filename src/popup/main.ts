@@ -3,7 +3,7 @@ import { AnimationLoop, frameAt } from "../engine/animation";
 import { buildPets, type PetView } from "../engine/scene";
 import { GRID, buildFrame, drawGrid } from "../engine/sprites";
 import { barLevel, formatPercent, limitCaption, projectionText } from "../shared/format";
-import { closeThisWindow, getHistory, getSettings, getSnapshot, onAlert, onSnapshot } from "../shared/ipc";
+import { closeThisWindow, getHistory, getSettings, getSnapshot, onAlert, onSettings, onSnapshot } from "../shared/ipc";
 import { playAlertSound } from "../shared/sounds";
 import type { HistoryPoint, Limit, Settings, Snapshot, Tool, ToolUsage } from "../shared/types";
 import { CHART_H, CHART_W, buildChart } from "./chart";
@@ -70,7 +70,7 @@ function render() {
   pets = buildPets(snapshot);
   const exactNote = settings.claudeExact && snapshot.claudeExactError ? `<span class="warn">Claude exato indisponível: ${esc(snapshot.claudeExactError)}</span>` : `<span></span>`;
   app.innerHTML = `
-    <header data-tauri-drag-region><h1>Token Pets</h1><button id="close" title="Fechar (Esc)">✕</button></header>
+    <header class="drag"><h1>Token Pets</h1><button id="close" title="Fechar (Esc)">✕</button></header>
     <div class="cards">${card(snapshot.claude, "Claude", now)}${card(snapshot.codex, "Codex", now)}</div>
     <div><h3>Agora</h3><div class="pets">${petsHtml()}</div></div>
     <div>
@@ -120,6 +120,7 @@ async function init() {
   void onAlert((a) => {
     if (settings.sounds) playAlertSound(a.kind);
   });
+  void onSettings((s) => (settings = s));
 }
 
 void init();

@@ -1,3 +1,7 @@
+> **Atualização (12/11/2026):** a stack mudou de Tauri + Rust para **Electron + TypeScript** porque o Smart App Control
+> do Windows bloqueia as proc-macros do Rust. O restante do plano (fontes de dados, avisos, issues) segue valendo.
+> O status real está em [ISSUES.md](ISSUES.md).
+
 # Token Pets: app de bandeja com agentezinhos que mostram o uso do Claude e do Codex
 
 ## Contexto

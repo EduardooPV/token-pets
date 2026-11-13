@@ -1,13 +1,13 @@
-// Pet flutuante: janela transparente, sempre no topo, que deixa o clique passar (cursor events ignorados no Rust).
+// Pet flutuante: janela transparente, sempre no topo, que deixa o clique passar (cursor events ignorados no processo principal).
 import { AnimationLoop, frameAt } from "../engine/animation";
 import { buildPets, type PetView } from "../engine/scene";
 import { GRID, buildFrame, drawGrid } from "../engine/sprites";
-import { getSettings, getSnapshot, onAlert, onSnapshot } from "../shared/ipc";
+import { getSettings, getSnapshot, onAlert, onSettings, onSnapshot } from "../shared/ipc";
 import { playAlertSound } from "../shared/sounds";
 import type { Settings } from "../shared/types";
 
 const SCALE = 3; // 48px por boneco
-const SLOT = 56; // deve bater com PET_SLOT em windows.rs
+const SLOT = 56; // deve bater com PET_SLOT em electron/main.ts
 const canvas = document.getElementById("pet") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 let pets: PetView[] = [];
@@ -60,6 +60,7 @@ async function init() {
   void onAlert((a) => {
     if (settings.sounds) playAlertSound(a.kind);
   });
+  void onSettings((s) => (settings = s));
 }
 
 void init();
