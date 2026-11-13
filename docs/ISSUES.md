@@ -1,6 +1,34 @@
 # Backlog (local)
 
-Ordem: 1 → (2, 3 em paralelo) → 4 → 5 → 6 → 7 → 8 → 9 → 10. Marque `[x]` ao concluir.
+## Status da implementação (branch `feat/mvp`)
+
+Bloqueio: o Windows desta máquina está com **Smart App Control em modo "aplicar"**, que impede o `rustc` de carregar
+as DLLs de proc-macro sem assinatura (`serde_derive`, erro 4551). Por isso **nenhum código Rust foi compilado nem
+testado ainda**. O front-end (TypeScript) está com `tsc` e Vitest verdes e o popup foi conferido no navegador com dados
+de exemplo. Quando o Smart App Control for desligado: `cargo test`, `pnpm tauri dev` e depois os critérios de
+aceite abaixo, na ordem.
+
+| # | Código escrito | Verificado |
+|---|---|---|
+| 1 Base | sim (`lib.rs`, `tray.rs`, `windows.rs`, CI) | não (Rust não compila aqui) |
+| 2 Codex | sim (`collectors/codex.rs`, testes) | não |
+| 3 Claude local + sessões | sim (`claude_local.rs`, `sessions.rs`, `engine.rs`, testes) | não |
+| 4 % exato | sim (`claude_api.rs`, calibração em `engine.rs`) | não; o endpoint nunca foi chamado de verdade |
+| 5 Histórico e ritmo | sim (`store.rs`, `pace.rs`, `popup/chart.ts`) | gráfico visto com dados de exemplo; Rust não |
+| 6 Sprites e motor | sim | **sim** (Vitest + inspeção visual dos 7 estados × 2 personagens + 5 fantasias) |
+| 7 Popup | sim | layout visto no navegador com dados de exemplo; não no Tauri |
+| 8 Pet | sim (`pet/main.ts`, `sync_pet`) | não |
+| 9 Avisos e sons | sim (`alerts.rs`, `sounds.ts`) | testes Rust escritos, não executados |
+| 10 Medição e instalador | `scripts/measure.ps1` escrito | nenhuma medição feita; instalador não gerado |
+
+Diferenças em relação ao plano original:
+- Sons são sintetizados com WebAudio (sem arquivos WAV).
+- O pet não é clicável nem arrastável (a janela ignora o mouse por inteiro); abre-se o painel pela bandeja.
+- A deduplicação de avisos fica no Rust (`alerts.rs`), não no Vitest.
+- Teto da estimativa do Claude começa com valores chute (`DEFAULT_CAP_*` em `engine.rs`) e se calibra sozinho
+  na primeira leitura exata.
+
+Ordem: 1 → (2, 3 em paralelo) → 4 → 5 → 6 → 7 → 8 → 9 → 10. Marque `[x]` só depois de verificar o critério de aceite.
 
 ## [ ] 1. Base do projeto
 Scaffold Tauri 2 + TS (Vite), ícone na bandeja, instância única, autostart, CI (fmt, clippy, cargo test, tsc, vitest).
