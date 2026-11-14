@@ -64,7 +64,9 @@ jobs:
         run: |
           $files = Get-ChildItem -File | Where-Object { $_.Name -match '^Token-Pets-.*-win\.(exe|zip)$' }
           if ($files.Count -ne 2) { throw "esperava o instalador e o zip, achei $($files.Count)" }
-          $files | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content -Encoding ascii SHA256SUMS.txt
+          # fim de linha LF, para funcionar também com `sha256sum -c`
+          $lines = $files | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" }
+          [IO.File]::WriteAllText("$PWD/SHA256SUMS.txt", ($lines -join "`n") + "`n")
           Get-Content SHA256SUMS.txt
 
       - name: Atestado de procedência (prova que o .exe veio deste repositório e deste commit)
