@@ -89,11 +89,7 @@ gravação. Não contém conversas ou dados de uso reais e não é um benchmark 
   <img src="./docs/media/painel.png" alt="Painel com limites do Claude e Codex, agentes e histórico de sete dias" width="380" />
 </p>
 
-![Mascotes flutuantes com um balão de estado](./docs/media/agentes.png)
-
-**[▶ Assistir à demonstração completa — 36 s / 60 FPS](./docs/media/demonstracao.mp4)**
-
-<a href="./docs/media/demonstracao.mp4"><img src="./docs/media/demonstracao.png" alt="Prévia do vídeo: cursor arrastando um agente; clique para assistir" width="800" /></a>
+https://github.com/user-attachments/assets/1771bfa0-3039-4f28-ac61-0ee72d55eec7
 
 | Tempo | Demonstração |
 | --- | --- |
