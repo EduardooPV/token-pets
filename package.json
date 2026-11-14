@@ -7,6 +7,8 @@
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:app": "pnpm build && esbuild scripts/smoke.ts --bundle --platform=node --format=cjs --external:electron --outfile=release/qa/smoke.cjs && electron release/qa/smoke.cjs",
+    "demo:video": "pnpm build && esbuild scripts/demo.ts --bundle --platform=node --format=cjs --external:electron --outfile=release/qa/demo.cjs && electron release/qa/demo.cjs",
     "build:ui": "vite build",
     "build:main": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --target=node24 --format=cjs --external:electron --outdir=dist-electron --out-extension:.js=.cjs",
     "build": "pnpm typecheck && pnpm build:ui && pnpm build:main",
@@ -47,11 +49,13 @@
       "signAndEditExecutable": true
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
       "perMachine": false,
       "deleteAppDataOnUninstall": false,
       "shortcutName": "Token Pets",
       "createStartMenuShortcut": true,
+      "createDesktopShortcut": true,
       "runAfterFinish": true,
       "include": "build/installer.nsh"
     },

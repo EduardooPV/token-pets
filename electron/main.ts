@@ -8,7 +8,7 @@ import type { Settings, Snapshot } from "../src/shared/types";
 import { Runtime } from "./runtime";
 
 const APP_ID = "dev.eduardoopv.tokenpets";
-const POPUP = { w: 380, h: 640 };
+const POPUP = { w: 380, h: 760 };
 
 app.setAppUserModelId(APP_ID);
 
@@ -19,8 +19,7 @@ app.on("web-contents-created", (_e, contents) => {
   contents.on("will-navigate", (e) => e.preventDefault());
   contents.on("will-attach-webview", (e) => e.preventDefault());
 });
-// Sem processo de GPU: gasta menos memória e as animações são só pixel art em canvas 2D.
-app.disableHardwareAcceleration();
+// Mantém a composição acelerada: a janela transparente ocupa a área útil inteira.
 
 let store: Store;
 let runtime: Runtime;
@@ -60,11 +59,12 @@ function openPopup(): void {
     return;
   }
   const wa = screen.getPrimaryDisplay().workArea;
+  const height = Math.min(POPUP.h, wa.height - 24);
   const win = new BrowserWindow({
     width: POPUP.w,
-    height: POPUP.h,
+    height,
     x: wa.x + wa.width - POPUP.w - 12,
-    y: wa.y + wa.height - POPUP.h - 12,
+    y: wa.y + wa.height - height - 12,
     show: false,
     frame: false,
     resizable: false,
@@ -120,7 +120,7 @@ function syncPet(): void {
     focusable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
-    webPreferences,
+    webPreferences: { ...webPreferences, backgroundThrottling: false },
   });
   pet = win;
   win.setIgnoreMouseEvents(true, { forward: true });
@@ -208,7 +208,9 @@ function notify(title: string, body: string): void {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on("second-instance", openPopup);
+  app.on("second-instance", (_e, argv) => {
+    if (!argv.includes("--hidden")) void app.whenReady().then(openPopup);
+  });
   // O app vive na bandeja: fechar o popup ou o pet não encerra o processo.
   app.on("window-all-closed", () => {});
 
@@ -259,7 +261,8 @@ if (!app.requestSingleInstanceLock()) {
     });
     runtime.start();
     syncPet();
-    if (firstRun) openPopup(); // o ícone da bandeja pode ficar escondido em "^": mostra o app logo de cara
+    // Abrir pelo Iniciar/atalho sempre mostra o painel; só o início automático fica na bandeja.
+    if (!process.argv.includes("--hidden")) openPopup();
   });
 
   app.on("before-quit", () => runtime?.stop());

@@ -84,6 +84,34 @@ describe("Engine (Claude)", () => {
     expect(e2.windowSums(now)[0]).toBe(230);
   });
 
+  it("preserva título e pasta ao reiniciar com o offset no fim do arquivo", () => {
+    const [claude, codex] = [tmp(), tmp()];
+    const now = nowSecs();
+    const titled = join(claude, "p", "titled.jsonl");
+    const project = join(claude, "p", "project.jsonl");
+    write(titled, ['{"type":"custom-title","customTitle":"Revisar instalação"}', assistant("a", now, 100, 0)]);
+    write(project, [assistant("b", now, 50, 0)]);
+    const store = new Store(":memory:");
+    engine(store, claude, codex, now).initialScan(now);
+    const restarted = engine(store, claude, codex, now);
+    restarted.initialScan(now);
+    expect(restarted.snapshot(now).sessions.map((s) => s.label).sort()).toEqual(["Revisar instalação", "meu-app"].sort());
+    expect(restarted.windowSums(now)[0]).toBe(150);
+  });
+
+  it("sem metadados usa nomes estáveis em vez de IDs", () => {
+    const [claude, codex] = [tmp(), tmp()];
+    const now = nowSecs();
+    write(join(claude, "p", "uuid-session.jsonl"), ['{"type":"progress"}']);
+    write(join(claude, "p", "uuid-session", "subagents", "agent-deadbeef.jsonl"), ['{"type":"progress"}']);
+    const e = engine(new Store(":memory:"), claude, codex, now);
+    e.initialScan(now);
+    const names = e.snapshot(now).sessions.map((s) => s.label);
+    expect(names).toHaveLength(2);
+    expect(names.every((n) => n.startsWith("Claude · "))).toBe(true);
+    expect(names.join(" ")).not.toMatch(/uuid|deadbeef/);
+  });
+
   it("subagente ganha tipo e rótulo do meta e some ao finalizar", () => {
     const [claude, codex] = [tmp(), tmp()];
     const now = nowSecs();

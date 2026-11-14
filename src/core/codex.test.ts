@@ -50,6 +50,14 @@ describe("usageFromSample", () => {
 });
 
 describe("session meta", () => {
+  it("reconhece subagentes spawn e seus apelidos e funções", () => {
+    const m = parseSessionMeta(JSON.stringify({ type: "session_meta", payload: {
+      id: "child", source: { subagent: { spawn: { parent_thread_id: "parent", agent_nickname: "Luna", agent_role: "explorer" } } },
+    } }))!;
+    expect(m).toMatchObject({ isSubagent: true, nickname: "Luna", role: "explorer" });
+    expect(parseSessionMeta(JSON.stringify({ type: "session_meta", payload: { source: "vscode", agent_nickname: " " } }))!.nickname).toBeNull();
+  });
+
   it("lê id, cwd e se é subagente; gera rótulo", () => {
     const m = parseSessionMeta('{"type":"session_meta","payload":{"id":"abc","cwd":"C:\\\\Users\\\\dev\\\\projects\\\\meu-app","parent_thread_id":"zzz"}}')!;
     expect(m.id).toBe("abc");

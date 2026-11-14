@@ -54,9 +54,29 @@ jobs:
 
       - name: Build do app e do instalador
         shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: |
           pnpm build
-          pnpm exec electron-builder --win nsis zip --publish never "-c.extraMetadata.version=${{ steps.ver.outputs.version }}"
+          if ($LASTEXITCODE -ne 0) { throw "Build falhou" }
+          $signing = @()
+          if ($env:WIN_CSC_LINK) { $signing += '-c.forceCodeSigning=true' }
+          else { Write-Warning 'Release sem assinatura: o Smart App Control pode bloquear a abertura. Configure WIN_CSC_LINK e WIN_CSC_KEY_PASSWORD.' }
+          pnpm exec electron-builder --win nsis zip --publish never "-c.extraMetadata.version=${{ steps.ver.outputs.version }}" @signing
+          if ($LASTEXITCODE -ne 0) { throw "Empacotamento falhou" }
+
+      - name: Conferir assinatura do executável e do instalador
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+        run: |
+          $files = @((Get-ChildItem release/Token-Pets-*-win.exe).FullName, "$PWD/release/win-unpacked/Token Pets.exe")
+          foreach ($file in $files) {
+            $signature = Get-AuthenticodeSignature -LiteralPath $file
+            Write-Host "$(Split-Path $file -Leaf): $($signature.Status)"
+            if ($env:WIN_CSC_LINK -and $signature.Status -ne 'Valid') { throw "Assinatura inválida: $file" }
+          }
 
       - name: Checksums SHA-256
         shell: pwsh
@@ -90,7 +110,7 @@ jobs:
           **Instalar:** baixe ``Token-Pets-$v-win.exe``, abra e pronto (instala só para o seu usuário, sem precisar de administrador). Ele aparece no Menu Iniciar como "Token Pets" e inicia com o Windows.
           Prefere sem instalar? Use o ``.zip`` (portátil): extraia e rode ``Token Pets.exe``.
 
-          **Aviso do Windows (SmartScreen):** o app não é assinado digitalmente, então o Windows pode mostrar "O Windows protegeu seu PC". Clique em **Mais informações → Executar assim mesmo**. O código é aberto e este arquivo foi gerado pelo GitHub Actions a partir deste repositório.
+          **Sem certificado:** a instalação e o uso são possíveis. Se o aviso for do SmartScreen e você confiar na origem, use **Mais informações → Executar assim mesmo**. O Smart App Control é diferente: pode bloquear o app já instalado e não permite liberar só um aplicativo. Veja no [README](https://github.com/${{ github.repository }}#instalou-mas-não-abre) as alternativas e o impacto de alterar essa proteção. Checksums e atestados de procedência não substituem a assinatura Authenticode.
 
           **Conferir a integridade (opcional):**
           ``````powershell

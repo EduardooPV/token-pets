@@ -3,9 +3,10 @@
 // Dá para arrastar e arremessar os bonecos, clicar (balão com info) e clicar duas vezes (abre o popup).
 import { AnimationLoop, frameAt } from "../engine/animation";
 import { groundY, hitTest, isGrounded, stepBody, throwVelocity, type Body, type Bounds, type Sample } from "../engine/physics";
-import { paletteFor, quipFor, stateText, walkSpeed } from "../engine/personality";
+import { quipFor, stateText, walkSpeed } from "../engine/personality";
+import { drawSprite } from "../engine/renderer";
 import { buildPets, type PetView } from "../engine/scene";
-import { GRID, buildFrame, drawGrid } from "../engine/sprites";
+import { GRID } from "../engine/sprites";
 import { formatTokens } from "../shared/format";
 import { getSettings, getSnapshot, onAlert, onSettings, onSnapshot, openPopup, setPetInteractive } from "../shared/ipc";
 import { playAlertSound } from "../shared/sounds";
@@ -19,7 +20,7 @@ const BUBBLE_MS = 3500;
 const DOUBLE_CLICK_MS = 350;
 const CLICK_MAX_MOVE = 5;
 const FPS_IDLE = 12;
-const FPS_ACTIVE = 30;
+const FPS_ACTIVE = 60;
 
 interface Pet {
   view: PetView;
@@ -30,6 +31,7 @@ interface Pet {
   hopUntil: number;
   bubble: { lines: string[]; until: number } | null;
   lastClickAt: number;
+  clickHopAt: number;
 }
 
 interface Drag {
@@ -51,6 +53,7 @@ let order: string[] = [];
 let bounds: Bounds = { w: window.innerWidth, h: window.innerHeight, size: SIZE };
 let drag: Drag | null = null;
 let interactive = false;
+let pointer: { x: number; y: number } | null = null;
 let lastDraw = 0;
 let dirty: Array<[number, number, number, number]> = [];
 
@@ -68,6 +71,7 @@ function resize() {
     p.body.x = Math.max(0, Math.min(p.body.x, bounds.w - SIZE));
     if (p.body.y > groundY(bounds)) p.body.y = groundY(bounds);
   }
+  loop.requestDraw();
 }
 
 function syncPets(views: PetView[]) {
@@ -90,10 +94,12 @@ function syncPets(views: PetView[]) {
       hopUntil: 0,
       bubble: null,
       lastClickAt: 0,
+      clickHopAt: 0,
     });
   });
   // mantém a ordem de desenho atual (o último clicado fica por cima) e acrescenta os novos
   order = [...order.filter((k) => keys.has(k)), ...views.map((v) => v.key).filter((k) => !order.includes(k))];
+  loop.requestDraw();
 }
 
 function list(): Pet[] {
@@ -133,6 +139,11 @@ function wander(p: Pet, now: number, dt: number) {
 function update(now: number, dt: number) {
   for (const p of list()) {
     if (drag?.key === p.view.key) continue;
+    // Mantém o pet sob o cursor durante a janela de duplo clique.
+    if (p.clickHopAt && now >= p.clickHopAt) {
+      p.clickHopAt = 0;
+      if (isGrounded(p.body, bounds)) p.body.vy = -380;
+    }
     if (p.view.state === "celebrating" && isGrounded(p.body, bounds) && now >= p.hopUntil) {
       p.body.vy = -420;
       p.hopUntil = now + 900;
@@ -144,8 +155,8 @@ function update(now: number, dt: number) {
 }
 
 function isActive(): boolean {
-  if (drag) return true;
-  return list().some((p) => !isGrounded(p.body, bounds) || p.targetX != null);
+  if (drag || interactive) return true;
+  return list().some((p) => !isGrounded(p.body, bounds) || Math.abs(p.body.vx) >= 1 || p.targetX != null);
 }
 
 function drawBubble(p: Pet) {
@@ -184,15 +195,13 @@ function draw(nowMs: number) {
     const hop = p.targetX != null ? Math.abs(Math.sin(nowMs / 140)) * 3 : 0;
     const x = Math.round(p.body.x);
     const y = Math.round(p.body.y - hop);
-    const grid = buildFrame(p.view.character, state, frame, p.view.costume);
-    const palette = paletteFor(p.view.character, p.view.color);
     ctx.save();
     if (p.facing === 1) {
       ctx.translate(x + SIZE, y);
       ctx.scale(-1, 1);
-      drawGrid(ctx, grid, 0, 0, SCALE, palette);
+      drawSprite(ctx, p.view.character, state, frame, p.view.costume, p.view.color, 0, 0, SCALE);
     } else {
-      drawGrid(ctx, grid, x, y, SCALE, palette);
+      drawSprite(ctx, p.view.character, state, frame, p.view.costume, p.view.color, x, y, SCALE);
     }
     ctx.restore();
     dirty.push([x - 2, y - 6, SIZE + 4, SIZE + 12]);
@@ -205,6 +214,8 @@ function draw(nowMs: number) {
     }
   }
   for (const p of list()) drawBubble(p);
+  // Pets também se movem sob um cursor parado: libere o clique quando saírem de baixo dele.
+  if (!drag && pointer) setInteractive(hitKey(pointer.x, pointer.y) != null);
 }
 
 const loop = new AnimationLoop(draw, () => (isActive() ? FPS_ACTIVE : FPS_IDLE));
@@ -233,15 +244,17 @@ function onClick(p: Pet) {
   const now = performance.now();
   if (now - p.lastClickAt < DOUBLE_CLICK_MS) {
     p.lastClickAt = 0;
+    p.clickHopAt = 0;
     openPopup();
     return;
   }
   p.lastClickAt = now;
   p.bubble = { lines: bubbleFor(p), until: now + BUBBLE_MS };
-  if (isGrounded(p.body, bounds)) p.body.vy = -380; // pulinho
+  p.clickHopAt = now + DOUBLE_CLICK_MS;
 }
 
 window.addEventListener("pointermove", (e) => {
+  pointer = { x: e.clientX, y: e.clientY };
   if (drag) {
     const p = pets.get(drag.key);
     if (!p) return;
@@ -252,9 +265,11 @@ window.addEventListener("pointermove", (e) => {
     if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > CLICK_MAX_MOVE) drag.moved = true;
     drag.samples.push({ x: e.clientX, y: e.clientY, t: performance.now() });
     if (drag.samples.length > 12) drag.samples.shift();
+    loop.requestDraw();
     return;
   }
   setInteractive(hitKey(e.clientX, e.clientY) != null);
+  if (interactive) loop.requestDraw();
 });
 
 canvas.addEventListener("pointerdown", (e) => {
@@ -268,6 +283,7 @@ canvas.addEventListener("pointerdown", (e) => {
   drag = { key, dx: e.clientX - p.body.x, dy: e.clientY - p.body.y, startX: e.clientX, startY: e.clientY, startT: t, moved: false, samples: [{ x: e.clientX, y: e.clientY, t }] };
   // o pegado vai para o fim da lista: é desenhado por cima e vence o hit-test
   order = [...order.filter((k) => k !== key), key];
+  loop.requestDraw();
 });
 
 function endDrag(e: PointerEvent) {
@@ -287,10 +303,12 @@ function endDrag(e: PointerEvent) {
   const over = hitKey(e.clientX, e.clientY) != null;
   setInteractive(over);
   canvas.style.cursor = over ? "grab" : "default";
+  loop.requestDraw();
 }
 window.addEventListener("pointerup", endDrag);
 window.addEventListener("pointercancel", endDrag);
 document.addEventListener("mouseleave", () => {
+  pointer = null;
   if (!drag) setInteractive(false);
 });
 window.addEventListener("resize", resize);

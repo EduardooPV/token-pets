@@ -1,6 +1,7 @@
 // Coletor do Codex: lê `token_count` + `rate_limits` dos rollouts em ~/.codex/sessions.
 import type { Limit, ToolUsage } from "../shared/types";
 import { parseIso8601 } from "./util";
+import { projectLabel } from "./labels";
 
 export interface RawLimit {
   usedPercent: number;
@@ -81,6 +82,8 @@ export interface SessionMeta {
   id: string | null;
   cwd: string | null;
   isSubagent: boolean;
+  nickname: string | null;
+  role: string | null;
 }
 
 export function parseSessionMeta(firstLine: string): SessionMeta | null {
@@ -92,14 +95,17 @@ export function parseSessionMeta(firstLine: string): SessionMeta | null {
   }
   if (v?.type !== "session_meta" || !v.payload) return null;
   const p = v.payload;
+  const spawn = p.source?.subagent?.spawn;
+  const text = (v: unknown) => typeof v === "string" && v.trim() ? v.trim() : null;
   return {
     id: typeof p.id === "string" ? p.id : null,
     cwd: typeof p.cwd === "string" ? p.cwd : null,
-    isSubagent: p.parent_thread_id != null,
+    isSubagent: p.parent_thread_id != null || p.source?.subagent != null,
+    nickname: text(p.agent_nickname) ?? text(spawn?.agent_nickname),
+    role: text(p.agent_role) ?? text(spawn?.agent_role),
   };
 }
 
 export function labelFromCwd(cwd: string | null | undefined, fallback = "Codex"): string {
-  const last = cwd?.split(/[\\/]/).filter(Boolean).pop();
-  return last || fallback;
+  return projectLabel(cwd) ?? fallback;
 }

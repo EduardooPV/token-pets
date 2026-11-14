@@ -1,6 +1,7 @@
 // Coletor local do Claude: tokens dos transcripts em ~/.claude/projects (estimativa) e classificação de arquivos.
 import { relative, sep } from "node:path";
 import { parseIso8601 } from "./util";
+import { projectLabel } from "./labels";
 
 export interface UsageLine {
   messageId: string;
@@ -12,7 +13,7 @@ export interface UsageLine {
   cwd: string | null;
 }
 
-export type ParsedLine = { kind: "usage"; usage: UsageLine } | { kind: "title"; title: string };
+export type ParsedLine = { kind: "usage"; usage: UsageLine } | { kind: "title"; title: string } | { kind: "cwd"; cwd: string };
 
 /** Custo relativo aproximado (entrada = 1): saída 5x, escrita de cache 1,25x, leitura de cache 0,1x. */
 export function weigh(input: number, output: number, cacheWrite: number, cacheRead: number): number {
@@ -24,7 +25,7 @@ const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v)
 export function parseLine(line: string): ParsedLine | null {
   const wantsUsage = line.includes('"usage"');
   const wantsTitle = line.includes('"custom-title"');
-  if (!wantsUsage && !wantsTitle) return null;
+  if (!wantsUsage && !wantsTitle && !line.includes('"cwd"')) return null;
   let v: any;
   try {
     v = JSON.parse(line);
@@ -35,7 +36,7 @@ export function parseLine(line: string): ParsedLine | null {
     const t = typeof v.customTitle === "string" ? v.customTitle.trim() : "";
     return t ? { kind: "title", title: v.customTitle } : null;
   }
-  if (v?.type !== "assistant") return null;
+  if (v?.type !== "assistant") return typeof v?.cwd === "string" ? { kind: "cwd", cwd: v.cwd } : null;
   const m = v.message;
   const u = m?.usage;
   const ts = parseIso8601(v.timestamp);
@@ -91,5 +92,5 @@ export function parseAgentMeta(json: string): AgentMeta {
 }
 
 export function labelFromCwd(cwd: string | null | undefined): string | null {
-  return cwd?.split(/[\\/]/).filter(Boolean).pop() ?? null;
+  return projectLabel(cwd);
 }

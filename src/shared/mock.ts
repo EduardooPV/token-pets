@@ -1,4 +1,4 @@
-// Dados de exemplo usados só no `pnpm dev` aberto no navegador (fora do Tauri).
+// Dados de exemplo para a prévia no navegador e a validação visual; nenhuma conversa real.
 import type { HistoryPoint, Limit, Snapshot } from "./types";
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -32,7 +32,7 @@ export function mockSnapshot(): Snapshot {
       calibrated: false,
     },
     sessions: [
-      { id: "a", tool: "claude", kind: "main", agentType: null, agentColor: null, label: "Token usage monitoring app", status: "working", lastActivity: t - 5, tokens: 183_000 },
+      { id: "a", tool: "claude", kind: "main", agentType: null, agentColor: null, label: "Token Pets", status: "working", lastActivity: t - 5, tokens: 183_000 },
       { id: "b", tool: "claude", kind: "subagent", agentType: "code-reviewer", agentColor: null, label: "Revisão do PR", status: "working", lastActivity: t - 12, tokens: 42_000 },
       { id: "c", tool: "claude", kind: "subagent", agentType: "security-probe", agentColor: null, label: "Sonda de segurança", status: "waiting", lastActivity: t - 200, tokens: 9_000 },
       { id: "d", tool: "claude", kind: "subagent", agentType: "codebase-explorer", agentColor: null, label: "Mapa banco issues", status: "working", lastActivity: t - 8, tokens: 31_000 },

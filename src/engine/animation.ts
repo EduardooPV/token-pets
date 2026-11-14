@@ -45,19 +45,23 @@ export function frameAt(state: PetState, nowMs: number): number {
 }
 
 /**
- * Laço de animação limitado a 12 fps que pausa quando a janela está oculta.
- * `draw` só é chamado quando há pelo menos um quadro novo para desenhar.
+ * Cadência adaptável: sprites parados a 12 fps, movimento/interação a 60 fps.
+ * Pausa quando a janela está oculta e preserva a fração do intervalo entre quadros.
  */
 export class AnimationLoop {
   private raf = 0;
-  private last = 0;
+  private last = -Infinity;
   private running = false;
+  private requested = true;
   private readonly onVisibility = () => {
     if (document.hidden) this.cancel();
-    else if (this.running) this.schedule();
+    else if (this.running) {
+      this.last = -Infinity;
+      this.requestDraw();
+    }
   };
 
-  /** `fps` pode variar no tempo (ex.: 30 fps só enquanto algo se move); o padrão é MAX_FPS. */
+  /** `fps` pode variar no tempo; o padrão é MAX_FPS. */
   constructor(
     private readonly draw: (nowMs: number) => void,
     private readonly fps: () => number = () => MAX_FPS,
@@ -76,6 +80,12 @@ export class AnimationLoop {
     this.cancel();
   }
 
+  /** A próxima atualização do monitor já responde ao ponteiro, mesmo durante o repouso. */
+  requestDraw() {
+    this.requested = true;
+    if (this.running && !document.hidden) this.schedule();
+  }
+
   private cancel() {
     if (this.raf) cancelAnimationFrame(this.raf);
     this.raf = 0;
@@ -86,8 +96,12 @@ export class AnimationLoop {
     this.raf = requestAnimationFrame((t) => {
       this.raf = 0;
       if (!this.running || document.hidden) return;
-      if (t - this.last >= 1000 / this.fps() - 1) {
-        this.last = t;
+      const interval = 1000 / this.fps();
+      const elapsed = t - this.last;
+      const due = this.requested ? Math.min(interval, 1000 / 60) : interval;
+      if (elapsed >= due - 0.1) {
+        this.last = Number.isFinite(this.last) ? this.last + Math.max(1, Math.floor((elapsed + 0.1) / due)) * due : t;
+        this.requested = false;
         this.draw(Date.now());
       }
       this.schedule();

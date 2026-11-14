@@ -7,6 +7,7 @@ import type { ApiUsage, ApiWindow } from "./claudeApi";
 import * as claude from "./claudeLocal";
 import * as codex from "./codex";
 import { AgentColors } from "./agents";
+import { agentLabel, companionName } from "./labels";
 import { projectExhaustion } from "./pace";
 import { GONE_SECS, SessionTracker } from "./sessions";
 import type { Store } from "./store";
@@ -164,7 +165,7 @@ export class Engine {
     const mtime = fileMtimeSecs(path) ?? now;
     let cf = this.codexFiles.get(path);
     if (!cf) {
-      const meta = codex.parseSessionMeta(firstLine(path, 1 << 20) ?? "") ?? { id: null, cwd: null, isSubagent: false };
+      const meta = codex.parseSessionMeta(firstLine(path, 1 << 20) ?? "") ?? { id: null, cwd: null, isSubagent: false, nickname: null, role: null };
       cf = { tail: new TailState(), meta, tokens: 0 };
       this.codexFiles.set(path, cf);
     }
@@ -187,8 +188,9 @@ export class Engine {
         key: path,
         tool: "codex",
         kind: cf.meta.isSubagent ? "subagent" : "main",
-        agentType: null,
-        label: codex.labelFromCwd(cf.meta.cwd),
+        agentType: cf.meta.role,
+        label: cf.meta.nickname ?? (cf.meta.isSubagent ? agentLabel(cf.meta.role) : null)
+          ?? codex.labelFromCwd(cf.meta.cwd, companionName("codex", cf.meta.id ?? path)),
         activity: mtime,
         tokens: cf.tokens,
         finished: false,
@@ -203,6 +205,19 @@ export class Engine {
     let st = this.claudeFiles.get(path);
     if (!st) {
       st = { tail: new TailState(this.storedOffsets.get(path) ?? 0), title: null, cwd: null, seen: new Map() };
+      // O offset evita recontar tokens, mas também pulava o título e a pasta no reinício.
+      // Recupera apenas metadados das sessões ainda visíveis, sem alterar os contadores.
+      if (st.tail.offset > 0 && now - mtime < GONE_SECS) {
+        const metadata = st;
+        try {
+          readNewLines(path, new TailState(), (line) => {
+            const r = claude.parseLine(line);
+            if (r?.kind === "title") metadata.title = r.title;
+            else if (r?.kind === "cwd") metadata.cwd = r.cwd;
+            else if (r?.kind === "usage" && r.usage.cwd) metadata.cwd = r.usage.cwd;
+          });
+        } catch { /* tenta os próximos eventos se o arquivo estiver bloqueado */ }
+      }
       this.claudeFiles.set(path, st);
     }
     const added: Array<[number, number, number]> = [];
@@ -214,6 +229,10 @@ export class Engine {
         if (!r) return;
         if (r.kind === "title") {
           file.title = r.title;
+          return;
+        }
+        if (r.kind === "cwd") {
+          file.cwd = r.cwd;
           return;
         }
         const u = r.usage;
@@ -248,7 +267,7 @@ export class Engine {
     let agentColor: string | null = null;
     let finished = false;
     if (kind.kind === "main") {
-      label = file.title ?? claude.labelFromCwd(file.cwd) ?? `sessão ${kind.sessionId.slice(0, 6)}`;
+      label = file.title ?? claude.labelFromCwd(file.cwd) ?? companionName("claude", kind.sessionId);
     } else {
       let meta: claude.AgentMeta = { agentType: null, description: null, finished: false };
       try {
@@ -256,7 +275,7 @@ export class Engine {
       } catch {
         /* sem meta ainda */
       }
-      label = meta.description ?? meta.agentType ?? `agente ${kind.agentId.slice(0, 6)}`;
+      label = meta.description?.trim() || agentLabel(meta.agentType) || companionName("claude", kind.agentId);
       agentType = meta.agentType;
       agentColor = this.agentColors.lookup(agentType, file.cwd);
       finished = meta.finished;
