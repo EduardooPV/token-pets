@@ -1,0 +1,99 @@
+name: Release
+
+# Cada push na main (que não seja só documentação) roda os testes, gera o instalador do Windows
+# e publica um release "vMAJOR.MINOR.N" com o .exe, o .zip portátil e os checksums SHA-256.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write # criar o release
+      id-token: write # atestado de procedência do build
+      attestations: write
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false" # sem certificado de assinatura (o Windows vai avisar ao abrir)
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Testes
+        run: pnpm test
+
+      - name: Definir versão (MAJOR.MINOR do package.json + número da execução)
+        id: ver
+        shell: pwsh
+        run: |
+          $base = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $parts = $base.Split('.')
+          $version = "$($parts[0]).$($parts[1]).${{ github.run_number }}"
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build do app e do instalador
+        shell: pwsh
+        run: |
+          pnpm build
+          pnpm exec electron-builder --win nsis zip --publish never "-c.extraMetadata.version=${{ steps.ver.outputs.version }}"
+
+      - name: Checksums SHA-256
+        shell: pwsh
+        working-directory: release
+        run: |
+          $files = Get-ChildItem -File | Where-Object { $_.Name -match '^Token-Pets-.*-win\.(exe|zip)$' }
+          if ($files.Count -ne 2) { throw "esperava o instalador e o zip, achei $($files.Count)" }
+          $files | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content -Encoding ascii SHA256SUMS.txt
+          Get-Content SHA256SUMS.txt
+
+      - name: Atestado de procedência (prova que o .exe veio deste repositório e deste commit)
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: |
+            release/Token-Pets-*-win.exe
+            release/Token-Pets-*-win.zip
+
+      - name: Publicar release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $exe = (Get-ChildItem release/Token-Pets-*-win.exe).FullName
+          $zip = (Get-ChildItem release/Token-Pets-*-win.zip).FullName
+          @"
+          ## Token Pets $v
+
+          **Instalar:** baixe ``Token-Pets-$v-win.exe``, abra e pronto (instala só para o seu usuário, sem precisar de administrador). Ele aparece no Menu Iniciar como "Token Pets" e inicia com o Windows.
+          Prefere sem instalar? Use o ``.zip`` (portátil): extraia e rode ``Token Pets.exe``.
+
+          **Aviso do Windows (SmartScreen):** o app não é assinado digitalmente, então o Windows pode mostrar "O Windows protegeu seu PC". Clique em **Mais informações → Executar assim mesmo**. O código é aberto e este arquivo foi gerado pelo GitHub Actions a partir deste repositório.
+
+          **Conferir a integridade (opcional):**
+          ``````powershell
+          (Get-FileHash .\Token-Pets-$v-win.exe -Algorithm SHA256).Hash.ToLower()   # compare com SHA256SUMS.txt
+          gh attestation verify .\Token-Pets-$v-win.exe --repo ${{ github.repository }}
+          ``````
+          "@ | Set-Content -Encoding utf8 release-notes.md
+          gh release create "v$v" $exe $zip release/SHA256SUMS.txt --title "Token Pets $v" --notes-file release-notes.md --target "${{ github.sha }}" --latest

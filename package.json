@@ -1,7 +1,7 @@
 {
   "name": "token-pets",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,8 +11,7 @@
     "build:main": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --target=node24 --format=cjs --external:electron --outdir=dist-electron --out-extension:.js=.cjs",
     "build": "pnpm typecheck && pnpm build:ui && pnpm build:main",
     "app": "pnpm build && electron .",
-    "dist": "pnpm build && electron-builder --win zip --publish never",
-    "dist:nsis": "pnpm build && electron-builder --win nsis --publish never"
+    "dist": "pnpm build && electron-builder --win nsis zip --publish never"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
@@ -41,15 +40,34 @@
     "asar": true,
     "win": {
       "target": [
+        "nsis",
         "zip"
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "signAndEditExecutable": true
     },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "Token Pets",
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "include": "build/installer.nsh"
     },
-    "artifactName": "Token-Pets-${version}-win.${ext}"
+    "artifactName": "Token-Pets-${version}-win.${ext}",
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    }
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EduardooPV/token-pets.git"
   }
 }

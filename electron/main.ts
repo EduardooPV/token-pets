@@ -1,5 +1,5 @@
 // Processo principal: bandeja, janelas sob demanda (popup e pet), avisos e IPC.
-import { BrowserWindow, Menu, Notification, Tray, app, ipcMain, nativeImage, screen } from "electron";
+import { BrowserWindow, Menu, Notification, Tray, app, ipcMain, nativeImage, screen, session } from "electron";
 import { join } from "node:path";
 import { Store } from "../src/core/store";
 import { ICON_SIZE, encodePng, moodFor, renderIcon, tooltip } from "../src/core/trayIcon";
@@ -9,11 +9,16 @@ import { Runtime } from "./runtime";
 
 const APP_ID = "dev.eduardoopv.tokenpets";
 const POPUP = { w: 380, h: 640 };
-const PET_SLOT = 56; // deve bater com SLOT em src/pet/main.ts
-const PET_HEIGHT = 72;
-const PET_MAX_SLOTS = 9;
 
 app.setAppUserModelId(APP_ID);
+
+// Endurecimento: as janelas só carregam as páginas locais do app. Nada de navegar, abrir janelas novas,
+// webviews ou pedir permissões (câmera, microfone, localização etc.).
+app.on("web-contents-created", (_e, contents) => {
+  contents.setWindowOpenHandler(() => ({ action: "deny" }));
+  contents.on("will-navigate", (e) => e.preventDefault());
+  contents.on("will-attach-webview", (e) => e.preventDefault());
+});
 // Sem processo de GPU: gasta menos memória e as animações são só pixel art em canvas 2D.
 app.disableHardwareAcceleration();
 
@@ -22,7 +27,6 @@ let runtime: Runtime;
 let tray: Tray;
 let popup: BrowserWindow | null = null;
 let pet: BrowserWindow | null = null;
-let petSlots = 0;
 let trayKey = "";
 let trayTip = "";
 
@@ -91,48 +95,37 @@ function togglePopup(): void {
   else openPopup();
 }
 
-// ---- pet flutuante: transparente, sempre no topo, ignora o mouse ----
+// ---- pet flutuante: janela transparente do tamanho da área útil, sempre no topo ----
+// Fica ignorando o mouse (com `forward`, o renderer ainda recebe os movimentos); o renderer avisa
+// pelo IPC `pet_interactive` quando o cursor entra ou sai de um boneco.
 
-export function petSlotsFor(sessions: number): number {
-  return Math.max(2, sessions > 8 ? PET_MAX_SLOTS : sessions);
+function placePet(win: BrowserWindow): void {
+  win.setBounds(screen.getPrimaryDisplay().workArea);
 }
 
-function syncPet(sessionCount: number): void {
+function syncPet(): void {
   if (!store.getBool("pet_enabled", false)) {
     if (pet && !pet.isDestroyed()) pet.close();
     return;
   }
-  const slots = petSlotsFor(sessionCount);
-  const w = slots * PET_SLOT + 16;
-  const place = (win: BrowserWindow) => {
-    const wa = screen.getPrimaryDisplay().workArea;
-    win.setBounds({ x: wa.x + wa.width - w - 16, y: wa.y + wa.height - PET_HEIGHT, width: w, height: PET_HEIGHT });
-  };
-  if (pet && !pet.isDestroyed()) {
-    if (slots !== petSlots) {
-      petSlots = slots;
-      place(pet);
-    }
-    return;
-  }
+  if (pet && !pet.isDestroyed()) return;
   const win = new BrowserWindow({
-    width: w,
-    height: PET_HEIGHT,
+    ...screen.getPrimaryDisplay().workArea,
     show: false,
     frame: false,
     transparent: true,
     hasShadow: false,
     resizable: false,
+    movable: false,
     focusable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
     webPreferences,
   });
   pet = win;
-  petSlots = slots;
-  win.setIgnoreMouseEvents(true);
+  win.setIgnoreMouseEvents(true, { forward: true });
   win.setAlwaysOnTop(true, "screen-saver");
-  place(win);
+  placePet(win);
   win.once("ready-to-show", () => win.showInactive());
   win.on("closed", () => {
     if (pet === win) pet = null;
@@ -179,7 +172,7 @@ function buildMenu(): Menu {
       label: "Pet flutuante",
       type: "checkbox",
       checked: s.pet,
-      click: toggle("pet_enabled", false, () => syncPet(runtime.latest()?.sessions.length ?? 0)),
+      click: toggle("pet_enabled", false, () => syncPet()),
     },
     { label: "Sons", type: "checkbox", checked: s.sounds, click: toggle("sounds_enabled", false) },
     {
@@ -220,11 +213,15 @@ if (!app.requestSingleInstanceLock()) {
   app.on("window-all-closed", () => {});
 
   void app.whenReady().then(() => {
+    session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+    session.defaultSession.setPermissionCheckHandler(() => false);
     store = new Store(join(app.getPath("userData"), "token-pets.db"));
 
     // Primeira execução: iniciar com o Windows (só empacotado, para não registrar o electron.exe de dev).
-    if (!store.getBool("first_run_done", false)) {
+    const firstRun = !store.getBool("first_run_done", false);
+    if (firstRun) {
       if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true, args: ["--hidden"] });
+      store.setBool("pet_enabled", true); // os bonecos são a graça: já aparecem na primeira vez (o menu da bandeja desliga)
       store.setBool("first_run_done", true);
     }
 
@@ -232,6 +229,15 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle("get_history", (_e, days: number) => store.history(nowSecs() - Math.max(1, Math.min(30, Number(days) || 7)) * 86_400));
     ipcMain.handle("get_settings", () => settings());
     ipcMain.on("close_window", (e) => BrowserWindow.fromWebContents(e.sender)?.close());
+    ipcMain.on("open_popup", (e) => {
+      if (e.sender === pet?.webContents) openPopup();
+    });
+    ipcMain.on("pet_interactive", (e, on: boolean) => {
+      if (pet && !pet.isDestroyed() && e.sender === pet.webContents) pet.setIgnoreMouseEvents(!on, { forward: true });
+    });
+    screen.on("display-metrics-changed", () => {
+      if (pet && !pet.isDestroyed()) placePet(pet);
+    });
 
     tray = new Tray(nativeImage.createFromBuffer(encodePng(renderIcon(null), ICON_SIZE, ICON_SIZE)));
     tray.setToolTip("Token Pets");
@@ -243,7 +249,6 @@ if (!app.requestSingleInstanceLock()) {
         if (!changed) return;
         broadcast("snapshot", snap);
         updateTray(snap);
-        syncPet(snap.sessions.length);
       },
       onAlerts: (events) => {
         for (const ev of events) {
@@ -253,6 +258,8 @@ if (!app.requestSingleInstanceLock()) {
       },
     });
     runtime.start();
+    syncPet();
+    if (firstRun) openPopup(); // o ícone da bandeja pode ficar escondido em "^": mostra o app logo de cara
   });
 
   app.on("before-quit", () => runtime?.stop());

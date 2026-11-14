@@ -2,7 +2,7 @@
 Mede RAM (Private + Working Set) e CPU média do Token Pets (processo principal + filhos do Electron).
 Uso: pwsh scripts/measure.ps1 -Minutes 10 -Label so-bandeja [-Name electron]
   -Name: "electron" (rodando via `pnpm app`/`electron .`) ou "Token Pets" (instalado).
-Rode uma vez com o app só na bandeja e outra com o popup/pet aberto, e anote no README.
+Rode uma vez com o app só na bandeja e outra com o popup/pet aberto.
 #>
 param(
   [int]$Minutes = 10,
