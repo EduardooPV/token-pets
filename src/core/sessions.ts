@@ -11,6 +11,7 @@ interface Entry {
   tool: Tool;
   kind: SessionKind;
   agentType: string | null;
+  agentColor: string | null;
   label: string;
   lastActivity: number;
   tokens: number;
@@ -22,6 +23,7 @@ export interface Touch {
   tool: Tool;
   kind: SessionKind;
   agentType: string | null;
+  agentColor?: string | null;
   label: string;
   activity: number;
   tokens: number;
@@ -42,6 +44,7 @@ export class SessionTracker {
       tool: t.tool,
       kind: t.kind,
       agentType: null,
+      agentColor: null,
       label: "",
       lastActivity: 0,
       tokens: 0,
@@ -49,6 +52,7 @@ export class SessionTracker {
     };
     e.kind = t.kind;
     if (t.agentType) e.agentType = t.agentType;
+    if (t.agentColor) e.agentColor = t.agentColor;
     if (t.label) e.label = t.label;
     e.lastActivity = Math.max(e.lastActivity, t.activity);
     e.tokens = Math.max(e.tokens, t.tokens);
@@ -71,7 +75,7 @@ export class SessionTracker {
     for (const [id, e] of this.entries) {
       const status: SessionStatus | null = e.finished ? "waiting" : statusFor(now - e.lastActivity);
       if (!status) continue;
-      out.push({ id, tool: e.tool, kind: e.kind, agentType: e.agentType, label: e.label, status, lastActivity: e.lastActivity, tokens: e.tokens });
+      out.push({ id, tool: e.tool, kind: e.kind, agentType: e.agentType, agentColor: e.agentColor, label: e.label, status, lastActivity: e.lastActivity, tokens: e.tokens });
     }
     out.sort(
       (a, b) =>

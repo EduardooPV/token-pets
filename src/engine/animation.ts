@@ -57,7 +57,11 @@ export class AnimationLoop {
     else if (this.running) this.schedule();
   };
 
-  constructor(private readonly draw: (nowMs: number) => void) {}
+  /** `fps` pode variar no tempo (ex.: 30 fps só enquanto algo se move); o padrão é MAX_FPS. */
+  constructor(
+    private readonly draw: (nowMs: number) => void,
+    private readonly fps: () => number = () => MAX_FPS,
+  ) {}
 
   start() {
     if (this.running) return;
@@ -82,7 +86,7 @@ export class AnimationLoop {
     this.raf = requestAnimationFrame((t) => {
       this.raf = 0;
       if (!this.running || document.hidden) return;
-      if (t - this.last >= 1000 / MAX_FPS - 1) {
+      if (t - this.last >= 1000 / this.fps() - 1) {
         this.last = t;
         this.draw(Date.now());
       }

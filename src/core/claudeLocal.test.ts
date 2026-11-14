@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { classifyPath, labelFromCwd, parseAgentMeta, parseLine, weigh } from "./claudeLocal";
 
 const ASSISTANT =
-  '{"type":"assistant","timestamp":"2026-11-13T00:46:08.451Z","cwd":"C:\\\\Users\\\\Eduar\\\\Documents\\\\projects\\\\diagnos","sessionId":"s1","message":{"id":"msg_1","model":"claude-opus-5-5","role":"assistant","content":[{"type":"text","text":"oi"}],"usage":{"input_tokens":2,"cache_creation_input_tokens":2354,"cache_read_input_tokens":98945,"output_tokens":632,"service_tier":"standard"}}}';
+  '{"type":"assistant","timestamp":"2026-11-13T00:46:08.451Z","cwd":"C:\\\\Users\\\\dev\\\\Documents\\\\projects\\\\meu-projeto","sessionId":"s1","message":{"id":"msg_1","model":"claude-opus-5-5","role":"assistant","content":[{"type":"text","text":"oi"}],"usage":{"input_tokens":2,"cache_creation_input_tokens":2354,"cache_read_input_tokens":98945,"output_tokens":632,"service_tier":"standard"}}}';
 
 describe("claude parseLine", () => {
   it("lê o uso de mensagens do assistente", () => {
@@ -13,7 +13,7 @@ describe("claude parseLine", () => {
     expect(r.usage.messageId).toBe("msg_1");
     expect(r.usage.tokens).toBe(2 + 2354 + 98945 + 632);
     expect(r.usage.weighted).toBeCloseTo(weigh(2, 632, 2354, 98945), 6);
-    expect(labelFromCwd(r.usage.cwd)).toBe("diagnos");
+    expect(labelFromCwd(r.usage.cwd)).toBe("meu-projeto");
   });
 
   it("lê custom-title e ignora o resto", () => {

@@ -6,6 +6,7 @@ import type { Limit, Snapshot, Tool, ToolUsage } from "../shared/types";
 import type { ApiUsage, ApiWindow } from "./claudeApi";
 import * as claude from "./claudeLocal";
 import * as codex from "./codex";
+import { AgentColors } from "./agents";
 import { projectExhaustion } from "./pace";
 import { GONE_SECS, SessionTracker } from "./sessions";
 import type { Store } from "./store";
@@ -102,6 +103,7 @@ function listFiles(dir: string, depth: number, out: Array<[string, number]>): vo
 
 export class Engine {
   private sessions = new SessionTracker();
+  private agentColors = new AgentColors();
   private codexFiles = new Map<string, CodexFile>();
   private codexLatest: codex.CodexSample | null = null;
   private claudeFiles = new Map<string, ClaudeFile>();
@@ -243,6 +245,7 @@ export class Engine {
 
     let label: string;
     let agentType: string | null = null;
+    let agentColor: string | null = null;
     let finished = false;
     if (kind.kind === "main") {
       label = file.title ?? claude.labelFromCwd(file.cwd) ?? `sessão ${kind.sessionId.slice(0, 6)}`;
@@ -255,6 +258,7 @@ export class Engine {
       }
       label = meta.description ?? meta.agentType ?? `agente ${kind.agentId.slice(0, 6)}`;
       agentType = meta.agentType;
+      agentColor = this.agentColors.lookup(agentType, file.cwd);
       finished = meta.finished;
     }
     this.sessions.touch({
@@ -262,6 +266,7 @@ export class Engine {
       tool: "claude",
       kind: kind.kind,
       agentType,
+      agentColor,
       label,
       activity: mtime,
       tokens: 0,

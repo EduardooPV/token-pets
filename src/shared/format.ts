@@ -53,3 +53,10 @@ export function projectionText(l: Limit, now: number): string | null {
   const sameDay = new Date(now * 1000).toDateString() === when.toDateString();
   return `nesse ritmo acaba ${sameDay ? "hoje" : dias[when.getDay()]} ${hh}:${mm}`;
 }
+
+/** 950 -> "950", 12_300 -> "12,3k", 1_250_000 -> "1,3M" */
+export function formatTokens(n: number): string {
+  if (n < 1000) return String(Math.max(0, Math.round(n)));
+  const fmt = (v: number) => v.toFixed(1).replace(".", ",").replace(/,0$/, "");
+  return n < 1_000_000 ? `${fmt(n / 1000)}k` : `${fmt(n / 1_000_000)}M`;
+}

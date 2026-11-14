@@ -18,6 +18,7 @@ const session = (i: number, over: Partial<SessionInfo> = {}): SessionInfo => ({
   tool: "claude",
   kind: "main",
   agentType: null,
+  agentColor: null,
   label: `sessão ${i}`,
   status: "working",
   lastActivity: 0,
@@ -68,5 +69,20 @@ describe("buildPets", () => {
     expect(pets).toHaveLength(MAX_PETS);
     expect(pets[MAX_PETS - 1].overflow).toBe(4);
     expect(pets[0].overflow).toBeUndefined();
+  });
+});
+
+describe("cor dos bonecos", () => {
+  it("só subagentes são recoloridos; o frontmatter vence o hash", () => {
+    const pets = buildPets(
+      snap([
+        session(1),
+        session(2, { kind: "subagent", agentType: "seo-reviewer" }),
+        session(3, { kind: "subagent", agentType: "seo-reviewer", agentColor: "red" }),
+      ]),
+    );
+    expect(pets[0].color).toBeNull();
+    expect(pets[1].color).toMatch(/^#[0-9a-f]{6}$/);
+    expect(pets[2].color).toBe("#e5484d");
   });
 });

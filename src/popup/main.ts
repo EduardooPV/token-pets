@@ -1,5 +1,6 @@
 import "./style.css";
 import { AnimationLoop, frameAt } from "../engine/animation";
+import { paletteFor } from "../engine/personality";
 import { buildPets, type PetView } from "../engine/scene";
 import { GRID, buildFrame, drawGrid } from "../engine/sprites";
 import { barLevel, formatPercent, limitCaption, projectionText } from "../shared/format";
@@ -99,7 +100,7 @@ function draw(nowMs: number) {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) continue;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawGrid(ctx, buildFrame(p.character, p.state, frameAt(p.state, nowMs), p.costume), 0, 0, SCALE);
+    drawGrid(ctx, buildFrame(p.character, p.state, frameAt(p.state, nowMs), p.costume), 0, 0, SCALE, paletteFor(p.character, p.color));
   }
 }
 

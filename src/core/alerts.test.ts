@@ -31,6 +31,7 @@ const session = (id: string, status: "working" | "waiting"): SessionInfo => ({
   tool: "claude",
   kind: "main",
   agentType: null,
+  agentColor: null,
   label: id,
   status,
   lastActivity: 0,

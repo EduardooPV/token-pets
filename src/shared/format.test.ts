@@ -52,3 +52,14 @@ describe("format", () => {
     expect(projectionText({ ...soon, renewed: true }, 10_000)).toBeNull();
   });
 });
+
+import { formatTokens } from "./format";
+
+describe("formatTokens", () => {
+  it("formata em k e M", () => {
+    expect(formatTokens(950)).toBe("950");
+    expect(formatTokens(12_300)).toBe("12,3k");
+    expect(formatTokens(42_000)).toBe("42k");
+    expect(formatTokens(1_250_000)).toBe("1,3M");
+  });
+});

@@ -217,12 +217,19 @@ export function buildFrame(character: Character, state: PetState, frame: number,
   return core;
 }
 
-export function drawGrid(ctx: CanvasRenderingContext2D, g: Grid, x: number, y: number, scale: number) {
+export function drawGrid(
+  ctx: CanvasRenderingContext2D,
+  g: Grid,
+  x: number,
+  y: number,
+  scale: number,
+  palette: Record<string, string> = PALETTE,
+) {
   for (let gy = 0; gy < GRID; gy++) {
     for (let gx = 0; gx < GRID; gx++) {
       const k = g[gy][gx];
       if (!k) continue;
-      ctx.fillStyle = PALETTE[k] ?? "#ff00ff";
+      ctx.fillStyle = palette[k] ?? "#ff00ff";
       ctx.fillRect(Math.round(x + gx * scale), Math.round(y + gy * scale), scale, scale);
     }
   }

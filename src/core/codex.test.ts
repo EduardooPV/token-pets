@@ -51,10 +51,10 @@ describe("usageFromSample", () => {
 
 describe("session meta", () => {
   it("lê id, cwd e se é subagente; gera rótulo", () => {
-    const m = parseSessionMeta('{"type":"session_meta","payload":{"id":"abc","cwd":"C:\\\\Users\\\\Eduar\\\\projects\\\\app-diagnos","parent_thread_id":"zzz"}}')!;
+    const m = parseSessionMeta('{"type":"session_meta","payload":{"id":"abc","cwd":"C:\\\\Users\\\\dev\\\\projects\\\\meu-app","parent_thread_id":"zzz"}}')!;
     expect(m.id).toBe("abc");
     expect(m.isSubagent).toBe(true);
-    expect(labelFromCwd(m.cwd)).toBe("app-diagnos");
+    expect(labelFromCwd(m.cwd)).toBe("meu-app");
     expect(labelFromCwd(null)).toBe("Codex");
     expect(parseSessionMeta('{"type":"event_msg"}')).toBeNull();
   });

@@ -34,6 +34,8 @@ export interface SessionInfo {
   tool: Tool;
   kind: SessionKind;
   agentType: string | null;
+  /** cor declarada no frontmatter do agente (nome do Claude Code ou #hex); null = derivar do nome */
+  agentColor: string | null;
   label: string;
   status: SessionStatus;
   /** epoch em segundos */

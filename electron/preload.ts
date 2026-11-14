@@ -16,4 +16,6 @@ contextBridge.exposeInMainWorld("tokenPets", {
   onAlert: (cb: Cb<unknown>) => subscribe("alert", cb),
   onSettings: (cb: Cb<unknown>) => subscribe("settings", cb),
   closeWindow: () => ipcRenderer.send("close_window"),
+  openPopup: () => ipcRenderer.send("open_popup"),
+  setPetInteractive: (on: boolean) => ipcRenderer.send("pet_interactive", Boolean(on)),
 });

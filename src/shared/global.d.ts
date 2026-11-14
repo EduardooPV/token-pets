@@ -10,6 +10,9 @@ export interface TokenPetsApi {
   onAlert(cb: (a: AlertEvent) => void): Unsubscribe;
   onSettings(cb: (s: Settings) => void): Unsubscribe;
   closeWindow(): void;
+  openPopup(): void;
+  /** pet: true = a janela captura o mouse (cursor sobre um boneco); false = o clique passa */
+  setPetInteractive(on: boolean): void;
 }
 
 declare global {

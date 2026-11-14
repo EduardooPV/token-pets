@@ -46,6 +46,14 @@ export async function onSettings(cb: (s: Settings) => void): Promise<Unlisten> {
   return window.tokenPets ? window.tokenPets.onSettings(cb) : () => {};
 }
 
+export function openPopup(): void {
+  window.tokenPets?.openPopup();
+}
+
+export function setPetInteractive(on: boolean): void {
+  window.tokenPets?.setPetInteractive(on);
+}
+
 export async function closeThisWindow(): Promise<void> {
   window.tokenPets?.closeWindow();
 }
